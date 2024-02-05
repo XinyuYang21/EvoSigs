@@ -5,7 +5,7 @@ output: html_document
 
 ---
 ```{r}
-   install
+   devtools::install_github("XinyuYang21/EvoSigs")
    library(EvoSigs)
 ```
 ## step 1: Prepare Cancer Cell Fraction(CCF) Distributions-by-Samples Matrix
@@ -31,8 +31,6 @@ You can either use existing consensus signatures of evolutionary dynamics for TC
 
   # Visualize consensus signatures
   sig_plot(t(consensus_sig_TCGA))
-  
-   sigs_by_row = t(consensus_sig_TCGA)
 ```
 ### Step 3: Estimate Esigs Exposure Among Samples
 Using the prepared ccfMat (in Step 1) and consensus signatures (in Step 2), measure exposure using `EvoSig_estimate()` function:
