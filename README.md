@@ -1,6 +1,6 @@
 # EvoSigs
 
-EvoSig is an R package for quantifying evolutionary dynamics signatures from bulk whole genome/exome data. This repository also contains all code and documentation necessary to reproduce the analysis undertaken in the manuscript [Pan-cancer evolution signatures link clonal expansion to dynamic changes in the tumour immune microenvironment](https://www.biorxiv.org/content/10.1101/2023.10.12.560630v1.abstract)
+EvoSig is an R package for quantifying evolutionary dynamics signatures from bulk whole genome/exome data. This repository also contains all code and documentation necessary to reproduce the analysis undertaken in the manuscript [Pan-cancer evolution signatures link clonal expansion to dynamic changes in the tumour immune microenvironment](https://www.biorxiv.org/content/10.1101/2023.10.12.560630v1.abstract).
 
 ## Installation
 ```{r}
