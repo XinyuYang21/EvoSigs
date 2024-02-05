@@ -12,7 +12,7 @@ devtools::install_github("XinyuYang21/EvoSigs")
 ### How to estimate existing evolutionary dynamics signatures in your own samples
 Follow Rmarkdown manuscript `Extract_signature.Rmd`
 ```{r}
-manuscript_RMD/Extract_signature.Rmd
+manuscript_RMD/Esigs_extract.Rmd
 ```
 
 ### How to generate consensus signatures of evolutionary dynamics
