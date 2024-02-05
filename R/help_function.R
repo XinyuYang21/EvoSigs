@@ -119,11 +119,9 @@ cor.table = function(df,var_idx,sig_idx,delete_0=TRUE,min_n=30){
 #' @return Scatterplots
 #' @import dplyr
 #' @import ggpubr
-#' @import scales
 #' @import ggplot2
 #' @importFrom gridExtra grid.arrange
 #' @export
-#' @example scatter_facet(df=file,vb=var_index,va=sig_idx,var=x,facet_name="cancertype",x_lab="Signature Exposure (count / MB)",legend.position = "",highlight_color="lightsalmon")),ncol=1))
 scatter_facet <- function(var,df,vb,var_idx,facet_name="cancertype",cor_table,label.x=NA,label.y=NA,bin.width.x=NA,bin.width.y=NA,
                           x_lab="",legend.position="right",highlight_color="#1A9993FF",zero_delete=TRUE,subtype_panel=FALSE,varwidth=FALSE,log2_scale=FALSE,
                           shape_subtype=FALSE,compare_subtype=FALSE,side_boxplot=TRUE) {
@@ -235,8 +233,6 @@ scatter_facet <- function(var,df,vb,var_idx,facet_name="cancertype",cor_table,la
 #' @import ggpubr
 #' @import ggplot2
 #' @export
-#' @Example va:var vb:sig
-
 cor_facet = function(df,var_idx,sig_idx,facet,heatmap=FALSE,title="",empty_row_delete=FALSE,flip=FALSE,keep_all=TRUE,col_low="#4a7b94",col_high="#bb5a39",scatter=FALSE,scatter_var=NA,
                      label.x=NA,label.y=NA,bin.width.x=NA,bin.width.y=NA){
 

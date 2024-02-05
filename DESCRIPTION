@@ -5,16 +5,19 @@ Version: 1.0.0
 Date: 2020-2-08
 Author: Xinyu Yang
 Maintainer: Xinyu Yang <yangxinyu621@gmail.com>
-Depends: R (>= 2.0)
+Depends: 
+    R (>= 2.10)
 Description: Evolutionary dynamics signature extraction
 Imports: grid, RColorBrewer, dplyr, ggplot2, NMF, plyr, YAPSA,
         magrittr, reshape2, cowplot, gridExtra, NbClust, pheatmap,
-        ggpubr,
+        ggpubr, scales
 License: GPL-2
 LazyLoad: yes
+LazyData: true
 RoxygenNote: 7.2.3
 Encoding: UTF-8
 NeedsCompilation: no
 Packaged: 2020-02-09 04:26:34 UTC; yangx
 Collate: 
-
+  consensus_sig_TCGA.R  help_function.R  main_function.R
+  example_ccfMat_plot.R

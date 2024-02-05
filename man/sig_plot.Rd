@@ -2,26 +2,36 @@
 % Please edit documentation in R/main_function.R
 \name{sig_plot}
 \alias{sig_plot}
-\alias{ccf_dist}
 \title{Plot signature matrix}
 \usage{
-ccf_dist(
-  ccf_rows,
+sig_plot(
+  sigs_by_row,
   density_plot = FALSE,
   tag = NULL,
   col = NA,
   theme = "grey",
-  fraction = FALSE,
   strip_title = "Signature ",
   title = "Consensus Signature of evolutionary dynamics"
 )
 }
 \arguments{
-\item{sig}{signature matrix}
+\item{density_plot}{Logical, whether to plot density curves on top of bars}
+
+\item{tag}{Tag for the plot}
+
+\item{col}{Vector of colors for signatures}
+
+\item{theme}{Theme for the plot}
+
+\item{strip_title}{Title for the strip}
+
+\item{title}{Main title for the plot}
+
+\item{ccf_rows}{Signature matrix}
 }
 \value{
 mydata mutation data frame
 }
 \description{
-Plot signature matrix
+This function plots the signatures.
 }

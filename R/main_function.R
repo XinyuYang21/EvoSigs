@@ -213,10 +213,10 @@ Extract_sig <- function(ccfMat,consensus_sig,output=NA){
 #' @return A data frame with suggested clustering numbers for different methods and distances
 #' @import NbClust
 #' @export
-chooseNumOfConsensusSigs <- function(combine_sig,min = 2,max = 10){
+chooseNumOfConsensusSigs <- function(combine_sigs,min = 2,max = 10){
   
   # Define available clustering methods and distances
-  methods = c("kl","ch","hartigan",
+  method = c("kl","ch","hartigan",
                     "cindex","db","silhouette","ratkowsky","ball",
                     "ptbiserial","gap", "frey", "mcclain",  "gamma", "gplus", "tau", "dunn", 
                     "sdindex", "sdbw") # "hubert","dindex"
@@ -229,18 +229,18 @@ chooseNumOfConsensusSigs <- function(combine_sig,min = 2,max = 10){
   }
   
   # Initialize result table
-  result_table <- as.data.frame(matrix(ncol = length(distances), nrow = length(methods)))
-  colnames(result_table) <- distances
+  result_table <- as.data.frame(matrix(ncol = length(distance), nrow = length(method)))
+  colnames(result_table) <- distance
   
   # Loop through distances and methods to estimate clustering numbers
   for (j in 2:length(distance))
-    for(i in 1:length(methods)){
+    for(i in 1:length(method)){
       tryCatch({
         nb <- NbClust::NbClust(combine_sigs,distance = distance[j],
                      min.nc = min, max.nc = max, 
-                     method = "complete", index =methods[i])
+                     method = "complete", index = method[i])
         result_table[i, j] <- nb$Best.nc[1]
-        result_table[i, 1] <- methods[i]
+        result_table[i, 1] <- method[i]
       },error=function(e) print("error"))
     } 
   
@@ -348,8 +348,17 @@ sig_assignment <- function(signature,ccfMatrix,output=NA){
 
 
 #' Plot signature matrix
+#' 
+#' This function plots the signatures.
+#' 
 #' @name sig_plot
-#' @param sig signature matrix
+#' @param ccf_rows Signature matrix
+#' @param density_plot Logical, whether to plot density curves on top of bars
+#' @param tag Tag for the plot
+#' @param col Vector of colors for signatures
+#' @param theme Theme for the plot
+#' @param strip_title Title for the strip
+#' @param title Main title for the plot
 #' @return mydata mutation data frame
 #' @export
 #' @importFrom reshape2 melt
@@ -357,22 +366,27 @@ sig_assignment <- function(signature,ccfMatrix,output=NA){
 #' @importFrom RColorBrewer brewer.pal
 #' @importFrom magrittr %>% set_colnames
 #' @import dplyr
-ccf_dist <- function(ccf_rows,
-                     density_plot=FALSE,
-                     tag=NULL,col=NA,theme="grey",fraction=FALSE,strip_title="Signature ",
-                     title="Consensus Signature of evolutionary dynamics"){
+sig_plot <- function(sigs_by_row,
+                     density_plot = FALSE,
+                     tag = NULL,
+                     col = NA,
+                     theme = "grey",
+                     strip_title = "Signature ",
+                     title = "Consensus Signature of evolutionary dynamics"){
   
-  if (fraction) ccf_rows <- t(apply(ccf_rows,1,function(x) x/sum(x)))
-  
-  xx <- as.data.frame(ccf_rows) %>%
+  xx <- as.data.frame(sigs_by_row) %>%
     magrittr::set_colnames(1:ncol(.)) %>%
     mutate(signature=paste0(strip_title,1:nrow(.))) %>%
     reshape2::melt(.,id=c("signature"))
   
   if (is.na(col)){
-    if (nrow(ccf_rows)<=8) fills <-  RColorBrewer::brewer.pal(8, "Set3")[c(1,3:8,2)] else
-      fills <- RColorBrewer::brewer.pal(nriw(ccf_rows), "Set3")[c(1,3:8,2,9:ncol(sig))]
-  } else {fills <- col}
+    if (nrow(sigs_by_row)<=8) 
+      fills <-  RColorBrewer::brewer.pal(8, "Set3")[c(1,3:8,2)] 
+    else 
+      fills <- RColorBrewer::brewer.pal(nrow(sigs_by_row), "Set3")[c(1,3:8,2,9:ncol(sig))]
+  } else {
+    fills <- col
+  }
   
   p1 <- ggplot(xx,aes(y=value,x=variable)) + 
     geom_bar(aes(fill=signature),stat='identity') + 
@@ -386,7 +400,7 @@ ccf_dist <- function(ccf_rows,
           axis.title.x = element_text(color = "grey20"),
           axis.text.x = element_text(color = "grey20"),
           axis.text.y = element_text(color = "grey20")
-          ) +
+    ) +
     facet_grid(rows  = vars(signature),scales="free")+ 
     scale_x_discrete(breaks=c("1","50","100") ,labels=c("0", "0.5", "1"))+
     labs(x="Cancer Cell Fraction",y="",title=title,tag=tag)
@@ -403,7 +417,33 @@ ccf_dist <- function(ccf_rows,
     k <- k+1
   }
   grid::grid.draw(g1)
-  return(g1)
+  
+  #return(g1)
+}
+
+#' Plot Cancer Cell Fraction Distribution
+#'
+#' This function takes a Cancer Cell Fraction (CCF) distribution and generates a bar plot
+#' for visualization. It is designed to visualize the distribution of CCF in a single sample.
+#'
+#' @param ccf_dist A numeric vector representing the Cancer Cell Fraction distribution for a patient
+#' @import ggplot2
+#' @import dplyr 
+#' @return A ggplot object displaying the CCF distribution.
+#' @export
+#' @examples
+#' # Example usage:
+#' ccf_data <- matrix(runif(100), ncol = 1)
+#' ccf_dist_plot(ccf_data)
+ccf_dist_plot <- function(ccf_dist){
+  
+  as.data.frame(ccf_dist) %>%
+    mutate(bin = 1:nrow(.)/100) %>%
+    ggplot(aes(y=ccf_dist,x=bin)) + 
+    geom_bar(stat='identity') + 
+    theme_light()+
+    labs(x="Cancer Cell Fraction",y="")
+  
 }
 
 
@@ -544,4 +584,27 @@ rank_estimate_plot <- function(outputFolder,rankfilepath,format) {
   }
 }
 
+#' Estimate signautrue exposure using consensus signatures of evolutionary dynamics for TCGA data
+#'
+#' This function estimates exposure using consensus signatures for TCGA data.
+#'
+#' @param ccfMat_by_samples CCF matrix by samples
+#' @param consensus_sig Consensus signatures of evolutionary dynamics
+#' @return Exposure matrix
+#' @importFrom YAPSA LCD
+#' @export
+EvoSig_estimate <- function(ccfMat_by_samples,consensus_sig){
+  
+  # Replace NA values with 0
+  ccfMat_by_samples[is.na(ccfMat_by_samples)] = 0
+  
+  # Estimate exposure using LCD method
+  exposure <- YAPSA::LCD(ccfMat_by_samples,consensus_sig)
+  
+  # Set row and column names
+  rownames(exposure) = paste0("sig_",1:nrow(ccfMat_by_samples))
+  colnames(exposure) = paste0("sample_",1:ncol(ccfMat_by_samples))
+  
+  return(exposure)
+}
 
