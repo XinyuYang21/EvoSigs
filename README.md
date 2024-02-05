@@ -6,7 +6,7 @@ EvoSig is an R packge for quantifying evolutionary dynamics signatures from bulk
 
 ```{r}
 require(devtools)
-devtools::install_github("keyuan/ccube")
+devtools::install_github("XinyuYang21/EvoSigs")
 ```
 
 ## Getting Started
