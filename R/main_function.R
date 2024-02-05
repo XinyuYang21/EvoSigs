@@ -149,7 +149,7 @@ ccfMatBuild_output <- function(ccf_folder,output=NA,ccf_upper=1,RankEstimateType
 #' @param output_folder output_folder
 #' @export
 #' @return matrix combining all signature matrix
-combine_sig_nmf <- function(sig_folder,output_folder=NA,cancertype){
+combine_sig_nmf <- function(typewise_sigs,output_folder=NA,cancertype){
   
   for (i in 1:length(cancertype)){
     tryCatch({
@@ -189,7 +189,7 @@ Extract_sig <- function(ccfMat,consensus_sig,output=NA){
   EvoSig_exposure <- as.data.frame(t(YAPSA::LCD(Mat,consensus_sig))) %>%
   EvoSig_exposure <- cbind(EvoSig_exposure,apply(EvoSig_exposure[,1:n_sig],2,function(x) x/sum(x))) 
   colnames(EvoSig_exposure) <- c(paste0("Evo_sig_",1:n_sig),paste0("Evo_sig_",1:n_sig,"_proportion"))
-  EvoSig_exposure$samplename = ccfMat[,101])
+  EvoSig_exposure$samplename = ccfMat[,101]
   EvoSig_exposure$samplename = substr(filename$samplename,1,12)
   EvoSig_exposure$samplename = gsub("[.]","-", EvoSig_exposure$samplename)
     
@@ -201,39 +201,53 @@ Extract_sig <- function(ccfMat,consensus_sig,output=NA){
   return(EvoSig_exposure)
 }
 
-#' Perform Hierarchical clustering number estimate
-#' @name hc_cluster_test ccfMat ccf matrix for all samples
-#' @param combined_sigs combined signatures for all cancer types
-#' @param methods clustering method
-#' @param distance distance funciton
-#' @param min minimum clustering number
-#' @param max maximum clustering number
-#' @return exposure
+#' Choose the Number of Consensus Signatures using Hierarchical Clustering Number Estimate
+#'
+#' This function utilizes hierarchical clustering and various clustering indices to estimate
+#' the optimal number of consensus signatures for a given set of type-wise signatures.
+#'
+#' @title chooseNumOfConsensusSigs
+#' @param combine_sig Combined type-wise signatures across cancer types
+#' @param min Minimum clustering number
+#' @param max Maximum clustering number
+#' @return A data frame with suggested clustering numbers for different methods and distances
 #' @import NbClust
-hc_cluster_test <- function(combined_sigs,methods,distance,min = 2,max = 10){
+#' @export
+chooseNumOfConsensusSigs <- function(combine_sig,min = 2,max = 10){
   
+  # Define available clustering methods and distances
+  methods = c("kl","ch","hartigan",
+                    "cindex","db","silhouette","ratkowsky","ball",
+                    "ptbiserial","gap", "frey", "mcclain",  "gamma", "gplus", "tau", "dunn", 
+                    "sdindex", "sdbw") # "hubert","dindex"
+  distance = c("metodo","euclidean", "maximum", "manhattan", "canberra")
+  
+  # Function to get the mode of a vector
   getmode <- function(v) {
     uniqv <- unique(v)
     uniqv[which.max(tabulate(match(v, uniqv)))]
   }
   
-  tabla = as.data.frame(matrix(ncol = length(distance), nrow = length(methods)))
-  names(tabla) = distance
+  # Initialize result table
+  result_table <- as.data.frame(matrix(ncol = length(distances), nrow = length(methods)))
+  colnames(result_table) <- distances
   
+  # Loop through distances and methods to estimate clustering numbers
   for (j in 2:length(distance))
     for(i in 1:length(methods)){
       tryCatch({
-        nb = NbClust::NbClust(data,distance = distance[j],
+        nb <- NbClust::NbClust(combine_sigs,distance = distance[j],
                      min.nc = min, max.nc = max, 
                      method = "complete", index =methods[i])
-        tabla[i,j] = nb$Best.nc[1]
-        tabla[i,1] = methods[i]
+        result_table[i, j] <- nb$Best.nc[1]
+        result_table[i, 1] <- methods[i]
       },error=function(e) print("error"))
     } 
   
-  tabla <- rbind(tabla,c("Most_common",apply(tabla[,2:5],2,getmode)))
+  # Add a row indicating the most common clustering number for each distance
+  result_table <- rbind(result_table,c("Most_common",apply(result_table[,2:5],2,getmode)))
   
-  return(tabla)
+  return(result_table)
 }
 
 
@@ -392,80 +406,52 @@ ccf_dist <- function(ccf_rows,
   return(g1)
 }
 
-#' @name nmf_sig_plot_type
-#' @param type cancer type
-#' @param MatType matrix type
-#' @param input_folder ccf file path
-#' @param output output file path
-#' @param rank rank
-#' @return save nmf results in output folder and plot signature for this type
+
+#' EvoSig_generate: Generate Evolutionary Signatures
+#' 
+#' This function performs NMF for a given cancer type and generates evolutionary signatures.
+#' @name EvoSig_generate
+#' @param ccfMat A matrix containing ccf distribution data
+#' @param num_sigs The number of signatures suggested by rank estimate analysis
+#' @param nrun Run times
+#' @return A list containing results, signatures, and exposures
 #' @import NMF
 #' @importFrom magrittr %>% set_colnames
 #' @import dplyr
-nmf_sig_plot_type <- function(type,MatType="fraction",input_folder,output,rank,nrun){
-  
-  type_path <- paste0(input_folder,type,"/")
-  
-  if (MatType=="fraction") {
-    file_path <- paste0(input_folder,type,"/",dir(type_path)[grep("ccfFractionMatrix_",dir(type_path))])
-  } 
-  
-  if (MatType=="count"){
-    file_path <- paste0(input_folder,type,"/",dir(type_path)[grep("ccfCountMatrix_",dir(type_path))])
-  }
-  
-  if (!dir.exists(paste0(output,type))) {
-    dir.create(paste0(output,type)) 
-  }
-  
-  load(file=file_path)
-  
-  #format rank summary file
-  if (exists("ccfFractionMatrix")) ccfMat <- ccfFractionMatrix
-  if (exists("ccfCountMatrix")) ccfMat <- ccfCountMatrix
+EvoSig_generate <- function(ccfMat,rank,nrun){
   
   n_sample <- ncol(ccfMat)
   
+  # Extracting the first 100 rows and transposing the matrix
   ccf <- t(apply(ccfMat[1:100,],1,as.numeric))
   
-  #preprocess for rows with all 0
+  # Preprocess rows with all 0
   index_p <- which(rowSums(ccf)>0)
   index_n <- which(!rowSums(ccf)>0)
-  ccf<- ccf[which(rowSums(ccf)>0),]
+  ccf<- ccf[index_p,]
   
-  #run NMF
-  res <- nmf(ccf,rank,nrun=nrun,.opt='vp4')
+  # Run NMFF
+  res <- NMF::nmf(ccf,num_sigs,nrun=nrun,.opt='vp4')
   
-  sig <- as.data.frame(matrix(0,nrow=length(index_p)+length(index_n),ncol=ncol(res@fit@W)))
-  
+  # Extracting signatures and exposures
+  sig <- matrix(0, nrow = length(index_p)+length(index_n), ncol = ncol(res@fit@W))
   sig[c(index_p),] <- as.data.frame(res@fit@W) %>% set_colnames(paste0("sig_",1:ncol(.)))
+
+  expo <- as.data.frame(t(res@fit@H))
+  colnames(expo)[1:num_sigs] <- paste0("sig_",1:num_sigs)
   
-  expo <- as.matrix(res@fit@H)
-  
-  #output sig and expo
-  expo <- as.data.frame(t(expo)) 
-  colnames(expo)[1:rank] <- paste0("sig_",1:rank)
+  # Output results, signatures, and exposures
+  output <- list(
+    sig = as.data.frame(sig),
+    expo = expo
+  )
   
   save(expo,file=paste0(output,type,'/',type,'_',n_sample,"_expo_",Sys.Date(),".RData"))
   save(sig,file=paste0(output,type,'/',type,'_',n_sample,"_sig_",Sys.Date(),".RData"))
   save(res,file=paste0(output,type,'/',type,'_',n_sample,"_res_",Sys.Date(),".RData"))
+  return(output)
 }
 
-#' Perform nmf for multiple cancer types
-#' @name nmf_sig_all_plot
-#' @param input_folder ccf file path
-#' @param output output file path
-#' @param rank_summary rank summary file
-#' @return save nmf results in output folder and plot signature for all cancer types
-#' @export
-#' @import dplyr
-#' @import NMF
-nmf_sig_all_plot <- function(input_folder,output,rank_summary,MatType="fraction",nrun=100) {
-  
-  if (!dir.exists(output)) dir.create(output)
-  
-  lapply(1:nrow(rank_summary),function(x) nmf_sig_plot_type(rank_summary[x,1],input_folder=input_folder,output=output,rank=rank_summary[x,2],MatType=MatType,nrun=nrun))
-}
 
 #' Plotting rank estimate
 #' @name rank_estimate_plot

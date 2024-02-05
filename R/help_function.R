@@ -79,7 +79,7 @@ cor.table = function(df,var_idx,sig_idx,delete_0=TRUE,min_n=30){
   if (delete_0) df[,c(sig_idx,var_idx)] <- apply(df[,c(sig_idx,var_idx)],2,function(x) replace(x,x==0,NA)) # avoid 0 and zero-deviation
   
   summary = c(0,0,0)
-  delete variable with less than `min_n` samples
+  #delete variable with less than `min_n` samples
   for (i in var_idx)
     for (j in sig_idx) {
         summary = rbind(summary,c(i,j,length(which(!apply(is.na(df[,c(i,j)]),1,any)))))

@@ -118,11 +118,20 @@ EvoSig_input(Ccube_folder=Ccube_folder,output=output,ccfMatBuild=T,postSummaryBu
     save(expo,file=paste0(output,type,'/',type,'_',n_sample,"_expo_",Sys.Date(),".RData"))
     save(sig,file=paste0(output,type,'/',type,'_',n_sample,"_sig_",Sys.Date(),".RData"))
     save(res,file=paste0(output,type,'/',type,'_',n_sample,"_res_",Sys.Date(),".RData"))
-}
-  
+  }
+    type = 'BRCA'
+    ccfmat_path <- paste0(input_folder,type,"/",dir(type_path)[grep("ccfFractionMatrix_",dir(type_path))])  
+    
+    output_path = ".~"
   
   # Manually adjust rank from plot  
-  nmf_sig_plot_type <- function(type,MatType="fraction",input_folder,output,rank,unit)
+  EvoSig_generate <- function(ccfMats,rank,unit)
+  
+  # perform for multiple types
+  lapply(ccfMat_list,function(x) 
+    output = EvoSig_generate(ccfMat,rank=rank_list,nrun=100)
+    saveRDS(output, file = file.path(output_path, paste0(ncol(ccfMat), "_output_", Sys.Date(), ".rds"))))
+  
 ########################################################  
 ## Step 6: HC + LCD
 ## Combine signatures extracted from differernt cancer types, run Hierarchical cluster and plot (save hc_heatmap, consensus sig and plot to output folder)
