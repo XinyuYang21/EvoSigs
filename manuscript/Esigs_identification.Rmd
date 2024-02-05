@@ -1,0 +1,140 @@
+---
+title: "Signature_extract"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+Before extracting the signature, it is essential to prepare two inputs for each cancer type: ccf distributions matrix and suggested rank (provided from rank estimate procedure).
+
+For example, we constructed ccf distribution matrix for TCGA-LUAD cohort, each column represent 
+
+After preparing the necessary files, we proceed to perform Non-negative Matrix Factorization (NMF) on each cancer type, we embeded these steps in `nmf_sig_all_plot()` funciton. 
+```{r}
+  rank_summary <- read.csv(file= "./4.rank_summary_test.csv")[,-1]  #a table with two variables: cancertype and rank
+  ccfdist_path <- "./ccfMatFraction/"
+  output = "./NMF_result/"
+  
+  nmf_sig_all_plot(input_folder=ccfdist_path,output=nmf_folder,rank_summary=rank_summary,MatType="fraction")
+```
+
+The core code for nmf deconvolution for each cancer type see `nmf_sig_plot_type()`, you may need to customize the code based on the structure of your actual data.
+```{r}
+######################################################  
+## Step 1: run NMF 1000 times for each type based on specified ranks
+  
+  # Notice: must fill the rank_summary sheet first to specify ranks
+  ## make sure first column(cancertype) and 2nd column(rank)
+ 
+nmf_sig_plot_type <- function(type,input_folder,output,rank,nrun){
+  
+    type_path <- paste0(input_folder,type,"/")
+    
+    file_path <- paste0(input_folder,type,"/",dir(type_path)[grep("ccfFractionMatrix_",dir(type_path))])
+  
+    if (!dir.exists(paste0(output,type))) {
+      dir.create(paste0(output,type)) 
+    }
+    
+    load(file=file_path)
+    
+    #format rank summary file
+    if (exists("ccfFractionMatrix")) ccfMat <- ccfFractionMatrix
+    if (exists("ccfCountMatrix")) ccfMat <- ccfCountMatrix
+    
+    n_sample <- ncol(ccfMat)
+    
+    ccf <- t(apply(ccfMat[1:100,],1,as.numeric))
+    
+    #preprocess for rows with all 0
+    index_p <- which(rowSums(ccf)>0)
+    index_n <- which(!rowSums(ccf)>0)
+    ccf<- ccf[which(rowSums(ccf)>0),]
+    
+    #run NMF
+    res <- NMF::nmf(ccf,rank,nrun=nrun,.opt='vp4')
+    
+    sig <- as.data.frame(matrix(0,nrow=length(index_p)+length(index_n),ncol=ncol(res@fit@W)))
+    
+    sig[c(index_p),] <- as.data.frame(res@fit@W) %>% set_colnames(paste0("sig_",1:ncol(.)))
+    
+    expo <- as.matrix(res@fit@H)
+    
+    #output sig and expo
+    expo <- as.data.frame(t(expo)) 
+    colnames(expo)[1:rank] <- paste0("sig_",1:rank)
+  
+    save(expo,file=paste0(output,type,'/',type,'_',n_sample,"_expo_",Sys.Date(),".RData"))
+    save(sig,file=paste0(output,type,'/',type,'_',n_sample,"_sig_",Sys.Date(),".RData"))
+    save(res,file=paste0(output,type,'/',type,'_',n_sample,"_res_",Sys.Date(),".RData"))
+}
+
+```
+
+To obtain the consensus signatures of evolutionary dynamics across cancer types, we combine the individual type-wise signatures obtained in the previous step.Subsequently, we apply hierarchical clustering to them. Likewise, we will initially employ multiple testing methods to determine the optimal cluster number, which is also the final number of consensus signatures.
+```{r}
+########################################################  
+## Hierarchical cluster
+
+  ## combine signatures
+  combine_sig <- combine_sig_nmf(input_folder= nmf_folder,cancertype=rank_summary$cancertype) %>%
+    apply(2,function(x) x/sum(x)) 
+  
+  ## test the suggested number of clusters
+  lista.methods = c("kl","ch","hartigan",
+                      "cindex","db","silhouette","ratkowsky","ball",
+                       "ptbiserial","gap", "frey", "mcclain",  "gamma", "gplus", "tau", "dunn", 
+                       "sdindex", "sdbw") # "hubert","dindex"
+  lista.distance = c("metodo","euclidean", "maximum", "manhattan", "canberra")
+    
+  hc_cluster_test(data=combine_sig,methods=lista.methods,distance=lista.distance,max=10,min=2) 
+  
+```
+
+
+```{r}
+## identification of consensus signatures of evolutionary dynamics by averaging each cluster
+  library("RColorBrewer")
+  library("pheatmap")
+  library("cowplot")
+
+  # parameter
+  distance="euclidean"
+  output="."
+  cluster=4 # suggested from previous steps
+
+  upper = quantile(combine_sig,0.95)
+  breaksList = seq(0, upper, by = 0.01)
+  col <- colorRampPalette(rev(brewer.pal(n = 6, name = "RdYlBu")))(length(breaksList))
+    
+  ## set `cutree_cols` based on suggested cluster number 
+  out <- pheatmap(combine_sig, cutree_cols = cluster, fontsize_col = 5,fontsize_row = 0.4,color = col, breaks = breaksList,clustering_distance_cols=distance, cluster_rows=F,filename=paste0(output,"/",distance,"_",cluster,"_hc_heatmap.pdf"),clustering_method = "ward.D2")
+  
+  grid.draw(out)
+  
+  sig_label <- as.data.frame(cutree(out$tree_col,k=cluster)) %>%
+      set_colnames("cluster") %>%
+      mutate(sig=rownames(.))
+  
+  #write.csv(sig_label,file=paste0(output,"sig_label.csv"))
+
+  ## Obtain consensu signatures of evolutionary dynamics
+  consensus_sig <- as.data.frame(t(combine_sig)) %>%
+      mutate(sig=rownames(.)) %>%
+      left_join(.,sig_label,by="sig") %>%
+      group_by(cluster) %>%
+      mutate(sig=NULL) %>%
+      summarise_all(mean) 
+  
+  save(consensus_sig,file=paste0(output,"/",distance,"_",cluster,"_consensus_sig.RData"))
+  consensus_sig <- apply(t(consensus_sig[,2:101]),2,as.numeric)
+  
+  # visulizing signatures
+  p1 <- plot_grid(sig_plot(consensus_sig))
+  #save_plot(paste0(output,"/",distance,"_",cluster,"_consensus_sig.pdf"),p1,base_asp = cluster)
+
+```

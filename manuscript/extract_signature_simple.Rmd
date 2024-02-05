@@ -1,0 +1,407 @@
+---
+title: "Rank Estimate"
+output: html_document
+date: '2022-07-11'
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+
+```{r cars}
+library(EvoSig)
+library(cowplot)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+Ccube_folder = "D:/Project/Data/TCGA/Ccube/TCGA_0106/"
+output = "D:/Project/Xinyu/EvoSig.test/3.25_x100/TCGA/"
+
+###### Build post_summary
+#Build_post_summary(Ccube_folder=Ccube_folder,output=output,minsample=30,TCGA=T)
+
+###### load post_summary
+load(file="D:/Project/Xinyu/EvoSig.test/3.25_x100/TCGA/post_summary_7777_2020-03-25.RData")
+```
+
+
+```{r}
+install.packages("Biobase")
+BiocManager::install("Biobase")
+ccfBandCountsMat = ccfCountMatrix
+
+ccfBandFractionMat <- apply(ccfBandCountsMat,2,function(x) x/sum(x))
+ccfBandCountsMat.random <- NMF::randomize(ccfBandCountsMat)
+ccfBandFractionMat.random <- apply(ccfBandCountsMat.random,2,function(x) x/sum(x))
+write.csv(ccfBandCountsMat,file="D:/Project/Work/Phd/Evolution Project/GlasgowCancerEvolution/20200609_redesgin_signature/ccfMat_x100_2917_6.9_rerun_20230104/rank_estimate_2917/COADREAD_325_ccfCountMatrix.csv")
+write.csv(ccfBandCountsMat.random,file="D:/Project/Work/Phd/Evolution Project/GlasgowCancerEvolution/20200609_redesgin_signature/ccfMat_x100_2917_6.9_rerun_20230104/rank_estimate_2917/COADREAD_325_ccfCountMatrix.random.csv")
+write.csv(ccfBandFractionMat,file="D:/Project/Work/Phd/Evolution Project/GlasgowCancerEvolution/20200609_redesgin_signature/ccfMat_x100_2917_6.9_rerun_20230104/rank_estimate_2917/COADREAD_325_ccfFractionMatrix.csv")
+write.csv(ccfBandFractionMat.random,file="D:/Project/Work/Phd/Evolution Project/GlasgowCancerEvolution/20200609_redesgin_signature/ccfMat_x100_2917_6.9_rerun_20230104/rank_estimate_2917/COADREAD_325_ccfFractionMatrix.random.csv")
+
+icgc_summary = read.csv(file="D:/Project/Work/Phd/Evolution Project/GlasgowCancerEvolution/20200609_redesgin_signature/ccfMat_ICGC_20230104/ICGC_post_summary_type_2778_191107.csv")
+icgc_summary %>%
+  group_by(Types) %>%
+  summarise(n=n()) 
+```
+
+##  Construct CCF matrix
+
+```{r}
+########################################################  
+# Construct CCF matrix
+post_summary = read.csv("")
+
+
+ccfMatBuild_output(post_summary = post_summary_x100, input_folder=Ccube_folder,output=output_x100,ccfupper = 1)  
+
+```
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+
+########################################################
+# rank estimates - python
+output_rank_estimate = "D:/Project/Work/Phd/Evolution Project/GlasgowCancerEvolution/20200609 redesgin signature/ccfMat_x100_2917_6.9/rank_estimate/"
+
+########################################################
+## Merge rank estimate dataset
+  output_rank_estimate = "D:/Project/Work/Phd/Evolution Project/GlasgowCancerEvolution/20200609_redesgin_signature/ccfMat_x100_2917_6.9_rerun_20230104/rank_estimate_result/Measures/"
+  output_rank_estimate = "D:/Project/Work/Phd/Evolution Project/GlasgowCancerEvolution/20200609_redesgin_signature/ccfMat_ICGC_20230104/rank_estimate_9types/"
+
+  
+  typelist <- unique(unlist(lapply(dir(output_rank_estimate),function(x) strsplit(x,"_")[[1]][[1]])))
+#rank_blank <- data.frame(cancertype=typelist,rank=NA,rss_suggested_rank=NA)
+  rm(estimate_rank_all)
+  i = 2
+  for (i in 1:length(typelist)) {
+    tryCatch({
+      print(i)
+      type <- typelist[i]
+      
+      estimate <- read.csv(file= paste0(output_rank_estimate,dir(output_rank_estimate)[stringr::str_detect(dir(output_rank_estimate),paste0(type,"_ccfFractionMatrix.csv"))])) 
+      estimate_random <- read.csv(file=paste0(output_rank_estimate,dir(output_rank_estimate)[stringr::str_detect(dir(output_rank_estimate),paste0(type,"_ccfFractionMatrix.random.csv"))])) 
+      estimate$Data ='normal'
+      estimate_random$Data = 'random' 
+      
+      estimate_rank <- rbind(estimate,estimate_random) 
+  
+      xx <- reshape2::melt(estimate_rank,id=c("rank","Data")) %>% mutate(Measure=NA)
+      xx$variable <- as.character(xx$variable)
+      
+      xx[which(xx$variable=="dispersion"),]$Measure <- "Best fit"
+      xx[which(xx$variable=="cophenetic"),]$Measure <- "Consensus"
+      xx[which(xx$variable=="sparseness1"),]$Measure <- "Basis"
+      xx[which(xx$variable=="sparseness2"),]$Measure <- "Coefficients"
+      xx[c(which(xx$variable=="sparseness2"),which(xx$variable=="sparseness1")),]$variable <- "sparseness"
+      xx[which(xx$variable=="rss"),]$Measure <- "Best fit"
+      xx[which(xx$variable=="evar"),]$Measure <- "Best fit"
+      xx[which(xx$variable=="euclidean"),]$Measure <- "Best fit"
+      xx[which(xx$variable=="kl"),]$Measure <- "Best fit"
+      #xx <- subset(xx,variable %in% c("cophenetic","dispersion","rss","sparseness"))
+      
+      # rss_suggested_rank
+      min_rank = min(xx$rank)
+      idx = 1:(nrow(estimate)-1)
+      rss_decrease <-  min_rank + which((estimate[order(estimate$rank),]$rss[idx]-estimate[order(estimate$rank),]$rss[idx+1]) - (estimate_random[order(estimate_random$rank),]$rss[idx]-estimate_random[order(estimate_random$rank),]$rss[idx+1])<0)[1]
+      #rank_blank[which(rank_blank$cancertype == type),]$rss_suggested_rank <- rss_decrease 
+    
+      xx$cancertype = type
+      xx$rss_suggested_rank <- rss_decrease 
+      
+      # Merge
+      if (i==1) estimate_rank_all = xx
+        else estimate_rank_all = rbind(estimate_rank_all,xx)
+    })
+  }
+
+  write.csv(estimate_rank_all,paste0(output_rank_estimate,"rank_estimate_all.csv"))
+
+## plot rank estimate
+  #labeller = function(x) paste0(x,collapse = " - ")
+  estimate_rank_all %>%
+    filter(cancertype!="All") %>%
+    mutate(label = paste0(cancertype," - ",variable)) %>%
+    ggplot(aes(x=rank,y=value))+
+    geom_line(aes(lty=Data,color=Measure),cex=1)+
+    geom_point(aes(shape=Data,color=Measure),cex=2)+
+    labs(title="NMF Rank Estimate")+
+    scale_x_continuous(breaks = min(estimate_rank_all$rank):max(estimate_rank_all$rank))+
+    facet_wrap(~label,scales = "free_y",ncol=7)+
+    #facet_wrap(cancertype~variable,scales = "free_y",ncol=7)+
+    theme_bw()+ 
+    theme(#strip.background = element_rect(fill="orange"),
+          strip.text = element_text(colour ="black"))
+  
+  
+
+```
+
+
+# ICGC
+##  Construct CCF matrix
+
+```{r}
+########################################################  
+# function
+load_ccf <- function(samplename,input){
+
+  suppressWarnings(rm(ssm,res,ccubeRes))
+  
+  format <- paste0(input,samplename,"/",dir(paste0(input,samplename)))
+  
+  if (file.exists(format )) load(format)
+  return(ssm) 
+}
+
+ccfMatBuild <- function(samplenamelist,ccf_upper=1,ccf_folder,binwidth=0.01,random=FALSE){
+  
+  n_sample <- length(samplenamelist)
+  rows <- ccf_upper/binwidth + 1
+  ccfBand <- seq(0,upper,length.out = rows)
+  ccfBandCountsMat <- matrix(nrow = rows,ncol = n_sample)
+  
+  if (n_sample == 0) stop("The number of samples is 0")
+  
+  for (i in 1:n_sample){
+    
+    samplename <- as.character(samplenamelist[i])
+    ssm <- load_ccf(samplename,input = ccf_folder)
+    matchBandCountDf <- data.frame(Var1=as.character(1:rows))
+    matchBandCountDf <- suppressWarnings(left_join(matchBandCountDf,as.data.frame(table(findInterval(ssm$ccube_ccf,ccfBand))),stringAsFactors = F,by="Var1"))
+    ccfBandCountsMat[,i] <- matchBandCountDf$Freq
+    
+  }
+   ccfBandCountsMat[is.na( ccfBandCountsMat)] = 0
+  
+  if (random==TRUE){
+    
+    if (n_sample == 1) {
+      ccfBandFractionMat <- ccfBandCountsMat/sum(ccfBandCountsMat)
+      ccfBandFractionMat.random <- ccfBandFractionMat[sample(1:(rows-1))]
+      ccfBandCountsMat.random <- ccfBandCountsMat[sample(1:(rows-1))]
+    } else {
+      ccfBandFractionMat <- t(apply(ccfBandCountsMat[1:100,],2,function(x) x/sum(x)))
+      ccfBandCountsMat.random <- t(NMF::randomize(ccfBandCountsMat[1:100,]))
+      ccfBandFractionMat.random <- t(apply(ccfBandCountsMat.random,1,function(x) x/sum(x)))
+    }
+    ccfBandCountsMat = t(ccfBandCountsMat)[,1:100]
+    outputlist <- list(ccfBandCountsMat,ccfBandCountsMat.random,ccfBandFractionMat,ccfBandFractionMat.random)
+    
+  } else {
+    
+    if (n_sample == 1) {
+      ccfBandFractionMat <- ccfBandCountsMat/sum(ccfBandCountsMat)
+    } else {
+      ccfBandFractionMat <- apply(ccfBandCountsMat,2,function(x) x/sum(x))
+    }
+    outputlist <- list(ccfBandCountsMat,ccfBandFractionMat)
+  }
+  
+  #outputlist <- lapply(outputlist,function(x){x <- as.data.frame(x) %>% mutate(samplename=samplenamelist)})
+  
+  return(outputlist)
+}
+
+
+
+# Construct CCF matrix
+post_summary = read.csv("D:/Project/Work/Phd/Evolution Project/GlasgowCancerEvolution/20200609_redesgin_signature/ccfMat_ICGC_20230104/ICGC_post_summary_type_2778_191107.csv")
+ccf_folder = "D:/Project/Work/Phd/Evolution Project/Data/ICGC/Ccube/"
+output = "D:/Project/Work/Phd/Evolution Project/GlasgowCancerEvolution/20200609_redesgin_signature/ccfMat_ICGC_20230104/"
+
+  minsample = 100
+  ccfupper = 1
+# build ccfMat
+  samplelist_all <- post_summary$samplename
+  type <- post_summary %>% group_by(.data$Types)%>% summarize(n=n())
+  typelist <- as.character(subset(type,n>=minsample)$Types)
+  ntype <- length(typelist)
+  
+  cat(paste0("\n Start constructing ccf count matrix for ",ntype," types (>",minsample," samples) \n"))
+  
+  if (!is.na(output)) {
+    ccfOutput_path <- paste0(output,"ccfMat/")
+    ccfOutput_all_path <- paste0(output,"ccfMat/All/")
+    ccfOutput_rank_path <- paste0(output,"ccfMat/rank_estimate/")
+    
+    multi_dir_create(c(ccfOutput_all_path,ccfOutput_rank_path))
+    
+    i = 2
+    for (i in 1:ntype){
+      
+      type <-  typelist[i]
+      cat(paste0("\n >>>> loading ",i,'th type - ',type," <<<< \n"))
+      
+      samplelist_type <- subset(post_summary,Types==type)$samplename
+      n_sample <- length(samplelist_type)
+      
+      ccfBandCountsMat <- suppressWarnings(ccfMatBuild(samplenamelist=samplelist_type,ccf_folder = ccf_folder,ccf_upper=1,random=TRUE))
+      
+      ccfCountMatrix <-ccfBandCountsMat[[1]]
+      ccfCountsMatrix.random <- ccfBandCountsMat[[2]]
+      ccfFractionMatrix <- ccfBandCountsMat[[3]]
+      ccfFractionMatrix.random <- ccfBandCountsMat[[4]]
+      
+      # create directio
+      multi_dir_create(paste0(ccfOutput_path,type,"/"))  
+      
+      # Output Matrix 
+      output_format <- paste0(ccfOutput_path,type,"/",type,"_", n_sample,"_0-",ccfupper)
+      output_format_rank <- paste0(ccfOutput_rank_path,type,"_", n_sample,"_0-",ccfupper)
+      
+      save(ccfCountMatrix,file=paste0(output_format,"_ccfCountMatrix_",Sys.Date(),".RData"))
+      save(ccfCountsMatrix.random,file=paste0(output_format,"_ccfCountMatrix.random_",Sys.Date(),".RData"))
+      save(ccfFractionMatrix,file=paste0(output_format,"_ccfFractionMatrix_",Sys.Date(),".RData"))
+      save(ccfFractionMatrix.random,file=paste0(output_format,"_ccfFractionMatrix.random_",Sys.Date(),".RData"))
+      
+      # output to rank estimate folder
+     
+      write.csv(ccfFractionMatrix.random,file=paste0(output_format,"_ccfFractionMatrix.random_",Sys.Date(),".csv"))
+      write.csv(ccfFractionMatrix,file=paste0(output_format,"_ccfFractionMatrix_",Sys.Date(),".csv"))
+      
+ 
+    }
+  }
+  
+  # ouput ccf matrix for all samples
+  ccfBandCountsMat_all <- suppressWarnings(ccfMatBuild(samplelist_all,input_folder = input_folder,upper=ccfupper,add_samplename = add_samplename))
+  
+  ccfCountMatrix_all <- ccfBandCountsMat_all[[1]]
+  ccfFractionMatrix_all <- ccfBandCountsMat_all[[3]]
+  
+  output_all_format <- paste0(ccfOutput_all_path,"All_",length(samplelist_all),"_0-",ccfupper)
+  
+  # Output Matrix 
+  save(ccfCountMatrix_all,file=paste0(output_all_format,"_ccfCountMatrix_",Sys.Date(),".RData"))
+  save( ccfFractionMatrix_all,file=paste0(output_all_format,"_ccfFractionMatrix_",Sys.Date(),".RData"))
+  
+  cat(paste0("\n Done, saved results to ",output))
+```
+
+## Rank estimate plot
+
+```{r}
+  output_rank_estimate = "D:/Project/Work/Phd/Evolution Project/GlasgowCancerEvolution/20200609_redesgin_signature/ccfMat_ICGC_20230104/rank_estimate_9types/"
+
+   typelist <- unique(unlist(lapply(dir(output_rank_estimate),function(x) strsplit(x,"_")[[1]][[1]])))
+#rank_blank <- data.frame(cancertype=typelist,rank=NA,rss_suggested_rank=NA)
+  
+  i = 2
+  for (i in 1:length(typelist)) {
+    tryCatch({
+      
+      type <- typelist[i]
+      
+      estimate <- read.csv(paste0(output_rank_estimate,dir(output_rank_estimate)[stringr::str_detect(dir(output_rank_estimate),paste0(type,"_rank_summary.csv"))]))[,-1] %>%
+        filter(rank<=12,rank>=3)
+      colnames(estimate)[which(colnames(estimate)=="type")] <- "Data"
+      
+      xx <- reshape2::melt(estimate,id=c("rank","Data")) %>% mutate(Measure=NA)
+      xx$variable <- as.character(xx$variable)
+     
+      
+      xx[which(xx$variable=="dispersion"),]$Measure <- "Best fit"
+      xx[which(xx$variable=="cophenetic"),]$Measure <- "Consensus"
+      xx[which(xx$variable=="sparseness1"),]$Measure <- "Basis"
+      xx[which(xx$variable=="sparseness2"),]$Measure <- "Coefficients"
+      xx[c(which(xx$variable=="sparseness2"),which(xx$variable=="sparseness1")),]$variable <- "sparseness"
+      xx[which(xx$variable=="rss"),]$Measure <- "Best fit"
+      xx[which(xx$variable=="evar"),]$Measure <- "Best fit"
+      xx[which(xx$variable=="euclidean"),]$Measure <- "Best fit"
+      xx[which(xx$variable=="kl"),]$Measure <- "Best fit"
+      
+      # rss_suggested_rank
+      min_rank = min(xx$rank)
+      idx = 1:(nrow(estimate)-1)
+      rss_decrease <-  min_rank + which((estimate[order(estimate$rank),]$rss[idx]-estimate[order(estimate$rank),]$rss[idx+1]) - (estimate_random[order(estimate_random$rank),]$rss[idx]-estimate_random[order(estimate_random$rank),]$rss[idx+1])<0)[1]
+      #rank_blank[which(rank_blank$cancertype == type),]$rss_suggested_rank <- rss_decrease 
+    
+      xx$cancertype = type
+      xx$rss_suggested_rank <- rss_decrease 
+      
+      # Merge
+      if (i==1) estimate_rank_all = xx
+        else estimate_rank_all = rbind(estimate_rank_all,xx)
+    })
+  }
+
+  write.csv(estimate_rank_all,paste0(output_rank_estimate,"icgc_rank_estimate_all.csv"))
+
+
+```
+
+
+
+
+```{r}
+########################################################    
+# Extract signature (run NMF 1000 times for each cancer type)  
+ rank_summary <- read.csv(file= "D:/Project/Work/Phd/Evolution Project/GlasgowCancerEvolution/20200609_redesgin_signature/ccfMat_ICGC_20230104/4.rank_summary_test.csv")[,-1] #make sure first column(cancertype) and 2nd column(rank)
+ nmf_folder <- paste0(output_rank_estimate,"NMF_result/")
+ Matrix_folder <- "D:/Project/Work/Phd/Evolution Project/GlasgowCancerEvolution/20200609_redesgin_signature/ccfMat_ICGC_20230104/ccfMatFraction_9types/"
+ 
+nmf_sig_all_plot(input_folder=Matrix_folder,output=nmf_folder,rank_summary=rank_summary,MatType="fraction")
+
+rank = 4
+nmf_sig_plot_type <- function(type,MatType="fraction",input_folder,output,rank,nrun){
+  
+  # type = "BRCA"
+  type_path <- paste0(input_folder,type,"/")
+
+  ccfMat <- read.csv(file=paste0(input_folder,dir(input_folder)[grepl(type,dir(input_folder))]))
+  
+  if (!dir.exists(paste0(output,type))) {
+    dir.create(paste0(output,type)) 
+  }
+  
+  #format rank summary file
+  #if (exists("ccfFractionMatrix")) ccfMat <- ccfFractionMatrix
+  #if (exists("ccfCountMatrix")) ccfMat <- ccfCountMatrix
+  
+  n_sample <- ncol(ccfMat)
+  
+  ccf <- t(apply(ccfMat[,1:100],1,as.numeric))
+  
+  #preprocess for rows with all 0
+  index_p <- which(rowSums(ccf)>0)
+  index_n <- which(!rowSums(ccf)>0)
+  ccf<- ccf[which(rowSums(ccf)>0),]
+  
+  install.packages("vctrs")
+  #run NMF
+  res <- NMF::nmf(ccf,rank,nrun=nrun,.opt='vp4')
+  
+  sig <- as.data.frame(matrix(0,nrow=length(index_p)+length(index_n),ncol=ncol(res@fit@W)))
+  
+  sig[c(index_p),] <- as.data.frame(res@fit@W) %>% set_colnames(paste0("sig_",1:ncol(.)))
+  
+  expo <- as.matrix(res@fit@H)
+  
+  #output sig and expo
+  expo <- as.data.frame(t(expo)) 
+  colnames(expo)[1:rank] <- paste0("sig_",1:rank)
+  
+  save(expo,file=paste0(output,type,'/',type,'_',n_sample,"_expo_",Sys.Date(),".RData"))
+  save(sig,file=paste0(output,type,'/',type,'_',n_sample,"_sig_",Sys.Date(),".RData"))
+  save(res,file=paste0(output,type,'/',type,'_',n_sample,"_res_",Sys.Date(),".RData"))
+}
+# ########################################################  
+# ## Step 6: combine signatures + HC + LCD
+# rank_folder <- paste0(output_x100,"/ccfMat/rank_estimate")
+# consensus_sig <- hc_consensus_sig(input_folder = nmf_folder, output_folder = output_x100,
+#                                   cancertype=rank_summary$cancertype,min.nc=3,max.nc=12,method="ward.D2",index ="hubert",distance="euclidean")
+# 
+# ########################################################  
+# ## Step t: Signature Assignment: LCD
+# 
+#   ## load ccfFractionMatrix_all
+#   load(paste0(Matrix_folder,"All/",dir(paste0(Matrix_folder,"All/"))[2]))
+#   exposure <- sig_assignment(consensus_sig,ccfMatrix=t(ccfFractionMatrix_all[,1:100]),output=output_x100)
+```
+
