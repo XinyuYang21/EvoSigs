@@ -15,6 +15,8 @@ sig_plot(
 )
 }
 \arguments{
+\item{sigs_by_row}{Signature matrix}
+
 \item{density_plot}{Logical, whether to plot density curves on top of bars}
 
 \item{tag}{Tag for the plot}
@@ -26,8 +28,6 @@ sig_plot(
 \item{strip_title}{Title for the strip}
 
 \item{title}{Main title for the plot}
-
-\item{ccf_rows}{Signature matrix}
 }
 \value{
 mydata mutation data frame

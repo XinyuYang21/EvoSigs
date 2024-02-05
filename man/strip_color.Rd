@@ -4,22 +4,18 @@
 \alias{strip_color}
 \title{Customize top strip color}
 \usage{
-strip_color(
-  p,
-  col1 = signature_col,
-  col2 = NULL,
-  draw = FALSE,
-  direction = "top"
-)
+strip_color(p, col1 = NULL, col2 = NULL, draw = FALSE, direction = "top")
 }
 \arguments{
 \item{p}{plot}
 
+\item{col1}{customized color}
+
+\item{col2}{customized color}
+
 \item{draw}{whether to display in plots panal}
 
 \item{direction}{strip location}
-
-\item{col}{customized color}
 }
 \description{
 Customize top strip color

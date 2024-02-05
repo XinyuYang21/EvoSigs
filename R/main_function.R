@@ -352,7 +352,7 @@ sig_assignment <- function(signature,ccfMatrix,output=NA){
 #' This function plots the signatures.
 #' 
 #' @name sig_plot
-#' @param ccf_rows Signature matrix
+#' @param sigs_by_row Signature matrix
 #' @param density_plot Logical, whether to plot density curves on top of bars
 #' @param tag Tag for the plot
 #' @param col Vector of colors for signatures
@@ -364,7 +364,6 @@ sig_assignment <- function(signature,ccfMatrix,output=NA){
 #' @importFrom reshape2 melt
 #' @importFrom grid grid.draw
 #' @importFrom RColorBrewer brewer.pal
-#' @importFrom magrittr %>% set_colnames
 #' @import dplyr
 sig_plot <- function(sigs_by_row,
                      density_plot = FALSE,
@@ -373,52 +372,52 @@ sig_plot <- function(sigs_by_row,
                      theme = "grey",
                      strip_title = "Signature ",
                      title = "Consensus Signature of evolutionary dynamics"){
+ 
+    n_sig <- nrow(sigs_by_row)
+    xx <- as.data.frame(sigs_by_row) 
+    colnames(xx) <- paste0(1:ncol(xx))
+    xx$signature <- paste0(strip_title,1:n_sig)
+    xx <- reshape2::melt(xx,id=c("signature"))
   
-  xx <- as.data.frame(sigs_by_row) %>%
-    magrittr::set_colnames(1:ncol(.)) %>%
-    mutate(signature=paste0(strip_title,1:nrow(.))) %>%
-    reshape2::melt(.,id=c("signature"))
-  
-  if (is.na(col)){
-    if (nrow(sigs_by_row)<=8) 
-      fills <-  RColorBrewer::brewer.pal(8, "Set3")[c(1,3:8,2)] 
-    else 
-      fills <- RColorBrewer::brewer.pal(nrow(sigs_by_row), "Set3")[c(1,3:8,2,9:ncol(sig))]
-  } else {
-    fills <- col
-  }
-  
-  p1 <- ggplot(xx,aes(y=value,x=variable)) + 
-    geom_bar(aes(fill=signature),stat='identity') + 
-    scale_fill_manual(values = fills)+ 
-    theme_light()+
-    #ggtitle(paste0("rank = ",rank,", cancertype = ",type, ", MatrixType = ",MatType )) + 
-    theme(legend.title = element_blank(),
-          legend.position = "none",
-          strip.text.x = element_text(color= "white"),
-          panel.grid= element_blank(),
-          axis.title.x = element_text(color = "grey20"),
-          axis.text.x = element_text(color = "grey20"),
-          axis.text.y = element_text(color = "grey20")
-    ) +
-    facet_grid(rows  = vars(signature),scales="free")+ 
-    scale_x_discrete(breaks=c("1","50","100") ,labels=c("0", "0.5", "1"))+
-    labs(x="Cancer Cell Fraction",y="",title=title,tag=tag)
-  
-  g1 <- ggplot_gtable(ggplot_build(p1))
-  
-  strip_both <- which(grepl('strip-', g1$layout$name))
-  
-  k <- 1
-  for (i in strip_both) {
-    j1 <- which(grepl('rect', g1$grobs[[i]]$grobs[[1]]$childrenOrder))
-    g1$grobs[[i]]$grobs[[1]]$children[[j1]]$gp$fill <- fills[k]
-    #g1$layout$clip[j3] <- "off"
-    k <- k+1
-  }
-  grid::grid.draw(g1)
-  
-  #return(g1)
+    if (is.na(col)){
+      if (n_sig <= 8) 
+        fills <-  RColorBrewer::brewer.pal(8, "Set3")[c(1,3:8,2)] 
+      else 
+        fills <- RColorBrewer::brewer.pal(n_sig, "Set3")[c(1,3:8,2,9:n_sig)]
+    } else {
+      fills <- col
+    }
+    
+    p1 <- ggplot(xx,aes(y=value,x=variable)) + 
+      geom_bar(aes(fill=signature),stat='identity') + 
+      scale_fill_manual(values = fills)+ 
+      theme_light()+
+      #ggtitle(paste0("rank = ",rank,", cancertype = ",type, ", MatrixType = ",MatType )) + 
+      theme(legend.title = element_blank(),
+            legend.position = "none",
+            strip.text.x = element_text(color= "white"),
+            panel.grid= element_blank(),
+            axis.title.x = element_text(color = "grey20"),
+            axis.text.x = element_text(color = "grey20"),
+            axis.text.y = element_text(color = "grey20")
+      ) +
+      facet_grid(rows = vars(signature),scales = "free")+ 
+      scale_x_discrete(breaks = c("1","50","100") ,labels = c("0", "0.5", "1"))+
+      labs(x = "Cancer Cell Fraction",y = "",title = title,tag = tag)
+    
+    g1 <- ggplot_gtable(ggplot_build(p1))
+    
+    strip_both <- which(grepl('strip-', g1$layout$name))
+    
+    k <- 1
+    for (i in strip_both) {
+      j1 <- which(grepl('rect', g1$grobs[[i]]$grobs[[1]]$childrenOrder))
+      g1$grobs[[i]]$grobs[[1]]$children[[j1]]$gp$fill <- fills[k]
+      #g1$layout$clip[j3] <- "off"
+      k <- k+1
+    }
+    grid::grid.draw(g1)
+
 }
 
 #' Plot Cancer Cell Fraction Distribution

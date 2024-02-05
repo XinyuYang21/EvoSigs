@@ -1,70 +1,3 @@
-#' Build count matrix for input samples
-#' @name Build_post_summary
-#' @param ccf_folder ccf files folder
-#' @param output output path 
-#' @return a data frame containing the summary for all samples in the ccf files
-#' @export
-Build_post_summary_TCGA <- function(ccf_folder,output=NA,minsample=30){
-  
-  sample_list <- dir(ccf_folder)
-  n_sample = length(dir(input))
-  cat("Start building post summary for",n_sample," CCF files \n")
-  
-  post_summary_analyse_single_ccf <- function(samplename){
-    
-    ssm <- load_ccf(samplename,input=input)
-    ccf <- unique(ssm$ccube_ccf_mean)
-    ccf_mean_order <- sort(ccf,decreasing = T)
-    Ncluster <- length(ccf)
-    
-    post_summary <- data.frame(samplename <- samplename) 
-    post_summary$Tumor_Sample_Barcode = unique(ssm$Tumor_Sample_Barcode)
-    post_summary$n_mutations = nrow(ssm)
-    post_summary$ave_depth <- mean(ssm$total_counts)
-    post_summary$ccf_01_percentage = mean(ssm$ccube_ccf<=1)
-    post_summary$ccf_02_percentage = mean(ssm$ccube_ccf<=2)
-    post_summary$Ncluster = Ncluster
-    post_summary$purity = unique(ssm$purity)
-    post_summary$ccube_purity = ifelse(exists("ssm$ccube_purity"),unique(ssm$ccube_purity),NA)
-    post_summary$ccf_mean_cluster1 = ifelse(Ncluster>=1,ccf_mean_order[1],0)
-    post_summary$ccf_mean_cluster2 = ifelse(Ncluster>=2,ccf_mean_order[2],0)
-    post_summary$ccf_mean_cluster3 = ifelse(Ncluster>=3,ccf_mean_order[3],0)
-    post_summary$ccf_mean_cluster4 = ifelse(Ncluster>=4,ccf_mean_order[4],0)
-    post_summary$ccf_mean_cluster5 = ifelse(Ncluster>=5,ccf_mean_order[5],0)
-    colnames(post_summary) = c("samplename","Tumor_Sample_Barcode","n_mutations","ave_depth","ccf_0-1_percentage","ccf_0-2_percentage","Ncluster","purity","ccube_purity","ccf_mean_cluster1","ccf_mean_cluster2","ccf_mean_cluster3","ccf_mean_cluster4","ccf_mean_cluster5")
-    
-    cat(">")
-    return(post_summary)
-  }
-  
-  post_summary <- do.call(rbind,lapply(sample_list,post_summary_analyse_single_ccf))
-  data("TCGAtypefile") 
-  cancertype <- TCGAtypefile
-
-  if (colnames(cancertype)[1]=="Tumor_sample_barcode") 
-    colnames(cancertype)[1] <- "samplename"
-  
-  post_summary <- suppressWarnings(left_join(post_summary, cancertype,by="samplename"))
-  
-  if ("Types" %in% colnames(post_summary)) 
-    colnames(post_summary)[which(colnames(post_summary)=="Types")] <- "cancertype"
-  
-  # Output
-  if (!is.na(output)) {
-    
-    if (!dir.exists(output)) dir.create(output,recursive = T)
-    write.csv(post_summary,file=paste0(output,"post_summary_",n_sample,"_",Sys.Date(),".csv"))
-    save(post_summary,file=paste0(output,"post_summary_",n_sample,"_",Sys.Date(),".RData"))
-    
-  }
-  
-  cat("\n Done \n")
-  return(post_summary)
-}
-
-
-
-
 #' Correlation calculation function 
 #' @name cor.table
 #' @param df exposure file merged with measures of interest
@@ -424,13 +357,14 @@ ParseSnvCnaPcawgFormat <- function (ssm, cna) {
 #' Customize top strip color
 #' @name strip_color
 #' @param p plot
-#' @param col customized color
+#' @param col1 customized color
+#' @param col2 customized color
 #' @param draw whether to display in plots panal
 #' @param direction strip location
 #' @import ggplot2 
 #' @import grid
 #' @export
-strip_color <- function(p,col1=signature_col,col2=NULL,draw=FALSE,direction='top'){
+strip_color <- function(p,col1=NULL,col2=NULL,draw=FALSE,direction='top'){
   p1 <- ggplot_gtable(ggplot_build(p))
   k <- 1
   

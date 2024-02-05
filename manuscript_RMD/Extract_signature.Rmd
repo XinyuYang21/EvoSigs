@@ -4,10 +4,13 @@ author: "XINYU YANG"
 output: html_document
 
 ---
+```{r}
+   install
+   library(EvoSigs)
+```
 ## step 1: Prepare Cancer Cell Fraction(CCF) Distributions-by-Samples Matrix
 Consider the following example, where the CCF distribution matrix for two samples is created and visualized using `ccf_dist_plot()` function:
 ```{r}
-
    # Example: Combine CCF distributions for two samples
    ccfMat = cbind(data("example_ccfMat_plot.rds"),data("example_ccfMat_plot.rds"))
 
@@ -28,6 +31,8 @@ You can either use existing consensus signatures of evolutionary dynamics for TC
 
   # Visualize consensus signatures
   sig_plot(t(consensus_sig_TCGA))
+  
+   sigs_by_row = t(consensus_sig_TCGA)
 ```
 ### Step 3: Estimate Esigs Exposure Among Samples
 Using the prepared ccfMat (in Step 1) and consensus signatures (in Step 2), measure exposure using `EvoSig_estimate()` function:
